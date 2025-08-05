@@ -1,0 +1,105 @@
+; Robot Name: Gemini Stalker
+;
+; This robot is a brawler, designed for close combat.
+; It has max armor to survive, and a quick firing rate.
+; It constantly scans a narrow cone in front of it to find targets.
+
+ARMOR 5
+FIRE_RATE 1
+FUEL_CAPACITY 0
+ENGINE_SIZE 0
+CLOAKING 0
+RADAR_RANGE 0
+CPU_SPEED 0
+
+; Constants for behavior
+define scan_angle_start -5
+define scan_angle_end 5
+define scan_increment 1
+define move_speed 40
+
+; Variables
+allocate aim_angle
+allocate last_shot_distance
+allocate scan_count
+
+; Initial setup
+scan_angle_start to aim_angle
+0 to last_shot_distance
+0 to scan_count
+move_speed to speed
+
+; Main loop
+again
+	; Check if we have a target
+	if last_shot_distance > 0 then
+		gosub hunt_and_kill
+	else
+		gosub find_target
+	end
+
+	; We just fired or scanned, check if the gun is ready to fire again
+	if shot = 0 and last_shot_distance > 0 then
+		; If gun is ready, fire at the last known position
+		last_shot_distance to shot
+	end
+
+	goto again
+
+---
+; Subroutine to scan for a new target
+find_target
+	; Set the aim angle to the start of the scan cone
+	scan_angle_start to aim_angle
+	
+	; Scan a narrow arc in front of the robot
+	while aim_angle <= scan_angle_end do
+		aim_angle + direction to radar
+		; If we find a target, save the distance and exit the loop
+		if radar > 0 then
+			radar to last_shot_distance
+			return
+		end
+		aim_angle + scan_increment to aim_angle
+	end
+	
+	; If no target is found, reset the last shot distance
+	0 to last_shot_distance
+	
+	return
+
+---
+; Subroutine to hunt a target
+hunt_and_kill
+	; Fire the gun if it's ready
+	if shot = 0 then
+		last_shot_distance to shot
+	end
+
+	; Re-scan for the target to get an updated distance
+	; This reuses the `aim_angle` variable for scanning
+	scan_angle_start to aim_angle
+	
+	while aim_angle <= scan_angle_end do
+		aim_angle + direction to radar
+		; If we find the target again, update the distance
+		if radar > 0 then
+			radar to last_shot_distance
+			return
+		end
+		aim_angle + scan_increment to aim_angle
+	end
+	
+	; If the target is lost, clear the last known distance
+	0 to last_shot_distance
+
+	return
+
+---
+; Check for collisions
+; This is an added safety feature not present in the original Rambo Wall Crawler.
+if damage > 0 then
+	0 to speed ; Stop the robot if it takes damage from a collision
+	0 to direction ; Re-adjust direction to prevent future collision
+	100 to aim ; Aim up as a default (safe) position
+end
